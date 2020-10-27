@@ -1,0 +1,28 @@
+Response: Success
+ActionID: action/70689189-c38c-4649-8fa8-f9944dfcf73c/1/1
+Ping: Pong
+Timestamp: 1603821704.325353
+
+Response: Success
+ActionID: action/90ddf231-d87a-4f00-a45a-9ab4912b5ed1/1/1
+AMIversion: 5.0.2
+AsteriskVersion: 16.13.0
+SystemName: 
+CoreMaxCalls: 0
+CoreMaxLoadAvg: 0.000000
+CoreRunUser: 
+CoreRunGroup: 
+CoreMaxFilehandles: 0
+CoreRealTimeEnabled: No
+CoreCDRenabled: Yes
+CoreHTTPenabled: No
+
+Response: Success
+ActionID: action/37311dd4-76a1-43ef-b071-c17d63a59586/1/1
+Message: Extension Status
+Exten: 203
+Context: from-internal
+Hint: PJSIP/203,CustomPresence:203
+Status: 0
+StatusText: Idle
+

@@ -1,0 +1,11 @@
+Action: Ping
+ActionID: action/70689189-c38c-4649-8fa8-f9944dfcf73c/1/1
+
+Action: CoreSettings
+ActionID: action/90ddf231-d87a-4f00-a45a-9ab4912b5ed1/1/1
+
+Action: ExtensionState
+ActionID: action/37311dd4-76a1-43ef-b071-c17d63a59586/1/1
+Exten: 203
+Context: from-internal
+
