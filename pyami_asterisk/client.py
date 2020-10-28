@@ -43,8 +43,9 @@ class AMIClient:
         if not self._authenticated:
             await self._connection_close()
         else:
-            await Action(self._actions, self._actions_task).__call__(self._send_action)
-            self._actionsdq.pop()
+            if len(self._actionsdq) != 0:
+                await Action(self._actions, self._actions_task).__call__(self._send_action)
+                self._actionsdq.pop()
             if self._asyncio_tasks != list():
                 for task in self._asyncio_tasks:
                     asyncio.create_task(task)
