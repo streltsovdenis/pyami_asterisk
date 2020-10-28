@@ -5,9 +5,9 @@ import socket
 import pytest
 import yaml
 
-from pyami import AMIClient
+from pyami_asterisk import AMIClient
 # test_dir = os.path.join(os.path.dirname(__file__), 'fixtures')
-from pyami.utils import EOL, _convert_dict_to_bytes, _convert_bytes_to_dict
+from pyami_asterisk.utils import EOL, _convert_dict_to_bytes, _convert_bytes_to_dict
 
 
 # @pytest.fixture
@@ -131,7 +131,6 @@ async def _server(stream=None, **config):
     await ami._connection_close()
     server.close()
     await server.wait_closed()
-    # return connect
 
 
 @pytest.mark.asyncio
