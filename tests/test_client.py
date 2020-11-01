@@ -1,10 +1,15 @@
 import asyncio
 import contextlib
 import socket
+import sys
+from pathlib import Path
 
 import pytest
 import yaml
 
+file = Path(__file__).resolve()
+parent, root = file.parent, file.parents[1]
+sys.path.append(str(root))
 from pyami_asterisk import AMIClient
 from pyami_asterisk.utils import EOL, _convert_dict_to_bytes, _convert_bytes_to_dict
 
