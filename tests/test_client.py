@@ -6,22 +6,7 @@ import pytest
 import yaml
 
 from pyami_asterisk import AMIClient
-# test_dir = os.path.join(os.path.dirname(__file__), 'fixtures')
 from pyami_asterisk.utils import EOL, _convert_dict_to_bytes, _convert_bytes_to_dict
-
-
-# @pytest.fixture
-# async def _server():
-# async def _ami_connect(port):
-# port = unused_tcp_port_factory()
-# server = await start_server(63636)
-# asyncio.create_task(server.serve_forever())
-# ami = AMIClient(host='127.0.0.1', port=port, username=USERNAME, secret=SECRET, ping_delay=0)
-# yield
-# await ami._connection_close()
-# server.close()
-# await server.wait_closed()
-# return _ami_connect
 
 
 class GenActions:
@@ -33,7 +18,7 @@ class GenActions:
         self.response = ""
 
     def get_gen(self):
-        with open("../tests/fixtures/actions.txt", "rb") as resp_file:
+        with open("tests/fixtures/actions.txt", "rb") as resp_file:
             response = b""
             for resp in resp_file.readlines():
                 response += resp
@@ -58,7 +43,7 @@ class GenActionsResponse:
         self.response = ""
 
     def get_gen(self):
-        with open("../tests/fixtures/actions_response.txt", "rb") as resp_file:
+        with open("tests/fixtures/actions_response.txt", "rb") as resp_file:
             response = b""
             for resp in resp_file.readlines():
                 response += resp
@@ -91,11 +76,11 @@ async def handle_echo(reader, writer, stream=None):
                     message["Username"] == "valid_username"
                     and message["Secret"] == "valid_password"
             ):
-                with open("fixtures/login_ok.yaml") as conf:
+                with open("tests/fixtures/login_ok.yaml") as conf:
                     auth_login = yaml.full_load(conf)
                 response += _convert_dict_to_bytes(auth_login)
             else:
-                with open("fixtures/login_failed.yaml") as conf:
+                with open("tests/fixtures/login_failed.yaml") as conf:
                     auth_login = yaml.full_load(conf)
                 response += _convert_dict_to_bytes(auth_login)
             writer.write(response)
@@ -206,4 +191,3 @@ async def test_actions():
         await server.asend(None)
     except StopAsyncIteration:
         pass
-
