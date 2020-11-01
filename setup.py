@@ -6,8 +6,8 @@ with open("README.md", "r") as fh:
 
 setup(
     name='pyami_asterisk',
-    version='1.0.0',
-    description='pyami_asterisk is a library based on python’s AsyncIO to play with Asterisk Manager Interface (AMI)',
+    version='1.0.2',
+    description='pyami_asterisk is a library based on python’s AsyncIO with Asterisk AMI',
     author='Denis Streltsov',
     author_email='dsv.streltsov@gmail.com',
     url='https://github.com/streltsovdenis/pyami_asterisk.git',
@@ -24,6 +24,7 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
+        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Topic :: Communications :: Telephony',
