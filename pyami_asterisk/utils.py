@@ -13,7 +13,6 @@ def _convert_bytes_to_dict(data: bytes) -> dict:
                 respons[_.split(": ", 1)[0]] = list_values
                 continue
             respons[_.split(": ", 1)[0]] = _.split(": ", 1)[1]
-    # data = {_.split(": ", 1)[0]: _.split(": ", 1)[1] for _ in data.decode("utf-8").split(EOL.decode()) if _ != ""}
     return respons
 
 

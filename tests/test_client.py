@@ -1,17 +1,29 @@
 import asyncio
 import contextlib
+import os
 import socket
 import sys
 from pathlib import Path
 
 import pytest
-import yaml
 
 file = Path(__file__).resolve()
 parent, root = file.parent, file.parents[1]
 sys.path.append(str(root))
 from pyami_asterisk import AMIClient
 from pyami_asterisk.utils import EOL, _convert_dict_to_bytes, _convert_bytes_to_dict
+
+
+def replace_EOL():
+    for _ in os.listdir(os.path.abspath(str(parent) + "/fixtures/")):
+        with open(str(parent) + "/fixtures/" + _, "rb") as f:
+            data = f.read().replace(b"\r\n", b"\n")
+            data = data.replace(b"\n", b"\r\n")
+        with open(str(parent) + "/fixtures/" + _, "wb") as f:
+            f.write(data)
+
+
+replace_EOL()
 
 
 class GenActions:
@@ -81,13 +93,11 @@ async def handle_echo(reader, writer, stream=None):
                     message["Username"] == "valid_username"
                     and message["Secret"] == "valid_password"
             ):
-                with open("tests/fixtures/login_ok.yaml") as conf:
-                    auth_login = yaml.full_load(conf)
-                response += _convert_dict_to_bytes(auth_login)
+                with open("tests/fixtures/login_ok.txt", "rb") as login_file:
+                    response += login_file.read()
             else:
-                with open("tests/fixtures/login_failed.yaml") as conf:
-                    auth_login = yaml.full_load(conf)
-                response += _convert_dict_to_bytes(auth_login)
+                with open("tests/fixtures/login_failed.txt", "rb") as login_fail_file:
+                    response += login_fail_file.read()
             writer.write(response)
             await writer.drain()
             continue
@@ -138,7 +148,7 @@ async def test_connection():
 @pytest.mark.asyncio
 async def test_login_ok():
     config = dict(username="valid_username", secret="valid_password")
-    server = _server(stream="login_ok.yaml", **config)
+    server = _server(**config)
     ami = await server.asend(None)
     try:
         await ami._open_connection()
@@ -155,7 +165,7 @@ async def test_login_ok():
 @pytest.mark.asyncio
 async def test_login_failed():
     config = dict(username="not_valid_username", secret="not_valid_password")
-    server = _server(stream="login_ok.yaml", **config)
+    server = _server(**config)
     ami = await server.asend(None)
     try:
         await ami._open_connection()
