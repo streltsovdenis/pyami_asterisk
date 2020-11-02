@@ -3,22 +3,21 @@ python:
   - "3.7"
   - "3.8"
   - "3.9"
-branches:
-  only:
-    - main
 install:
   - pip install -r requirements.txt
 script:
   - pytest
 deploy:
   provider: pypi
-  username: pep4ak
+  user: pep4ak
   password:
     secure: "VDyL4sTq7S7/3qxpCqpWXnaUMoc3Kr6LVLgf9dIv4TsWAJCJvVuZZGju/HxVsem8KEQoXnBqkWKOQ0Nt594vVdMOJsf2o1P7KAlY5brTdcZA+rl7mkeqWtwS5BUvOn1XZ8ywK1rsenEfe8LUCBG+NFbU5jGpmBmGEdUccPS/8jTuPs+6lDR0LZQ+2dGfmLHIh0mp3PCd+8gycLcQKy2rPWLiAJPTuh1FF/c9mVneXB3Jn2Zq4wNigt8y/CSzLFxM2QyyTNAiC0wkoGFJ3/U0ktDEpeaPkfe9fymUe/2tLLFbVjtDHlFlnzk+0/mzIVDNHAF7fAK8iHfshN7cZQ636P2nITHcBNeSEmK50PvQcaDnX0Ro1MoPO5dH9XzN9zxI4gKI49kXDLErsXXE7vlyuWcrE7zIeO7kScKoPrKjY1p8oOsL5ql+rWZnrfOp9G07ZrLiP6x9pVs1vn5Nc2cE+BgvNYB6cZpCvhOJbruV0z/ouh9xd+4juuNvfJd/VEx3fGv8tD4EIkaaTrSvqQlOWRL0hB3hUgEC6CYa6yOo0iO65qO/JhzX8ElLE2yq8YswOLz+ho0WZjqKy9VQuVHLZQtCevRihUkiQAEIb10oaOs9UerSFHts7JJv5UHMIyDvnsKgBqS82Hz8tE7czMM2mkfUe6ne26gKpTNJ6FvCiqE="
-  distributions: "sdist bdist_wheel"
+  distributions: sdist bdist_wheel
   skip_existing: true
     on:
       tags: true
+      branch: main
+      python: 3.9
     skip_cleanup: true
   after_script:
     - echo "Deploy to PyPI finished."
