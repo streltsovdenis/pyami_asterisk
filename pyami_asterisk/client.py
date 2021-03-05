@@ -8,11 +8,13 @@ from .utils import _convert_dict_to_bytes, EOL, IdGenerator, _convert_bytes_to_d
 
 
 class AMIClient:
-    defaults = dict(host="127.0.0.1", port=5038, ping_delay=2)
+    defaults = dict(host="127.0.0.1", port=5038, ping_delay=5, reconnect_timeout=5, reconnect_timeout_increase=0)
 
     def __init__(self, **config):
         self.config = dict(self.defaults, **config)
         self.ping_delay = int(self.config["ping_delay"])
+        self.reconnect_timeout = int(self.config["reconnect_timeout"])
+        self.reconnect_timeout_increase = int(self.config["reconnect_timeout_increase"])
         self.log = config.get('log', logging.getLogger(__name__))
         self._dq = deque()
         self._reader = None
@@ -29,29 +31,38 @@ class AMIClient:
     async def _open_connection(self):
         try:
             connection = asyncio.open_connection(self.config["host"], self.config["port"], loop=self._loop)
-            self._reader, self._writer = await asyncio.wait_for(connection, timeout=3)
-            return True
+            self._reader, self._writer = await asyncio.wait_for(connection, timeout=5)
         except (asyncio.exceptions.TimeoutError, ConnectionRefusedError):
-            self.log.error(f"Connection failed ({self.config['host']}, {self.config['port']})")
-        return False
+            if self.reconnect_timeout == 0:
+                return False
+            self.log.warning(f"Connection failed ({self.config['host']}, {self.config['port']}), next connection "
+                             f"attempt in {self.reconnect_timeout} second(s)")
+            await asyncio.sleep(self.reconnect_timeout)
+            if self.reconnect_timeout_increase > 0:
+                self.reconnect_timeout += self.reconnect_timeout_increase
+            await self._open_connection()
+        if self.reconnect_timeout_increase > 0:
+            self.reconnect_timeout = int(self.config["reconnect_timeout"])
+        return True
 
     async def _connect_ami(self):
+        if self._loop is None:
+            self._loop = asyncio.get_event_loop()
         self._connected = await self._open_connection()
         if not self._connected:
-            await self._connection_lost()
+            return
         self._authenticated = await self._login()
         if not self._authenticated:
-            await self._connection_close()
-        else:
-            if len(self._actionsdq) != 0:
-                await Action(self._actions, self._actions_task).__call__(self._send_action)
-                self._actionsdq.pop()
-            if self._asyncio_tasks != list():
-                for task in self._asyncio_tasks:
-                    asyncio.create_task(task)
-            if self.ping_delay > 0:
-                self._service_ping()
-            await self._event_listener()
+            return
+        if len(self._actionsdq) != 0:
+            await Action(self._actions, self._actions_task).__call__(self._send_action)
+            self._actionsdq.pop()
+        if self._asyncio_tasks != list():
+            for task in self._asyncio_tasks:
+                asyncio.create_task(task)
+        if self.ping_delay > 0:
+            self._service_ping()
+        await self._event_listener()
 
     async def _login(self):
         action_id_generator = IdGenerator('action')
@@ -76,8 +87,8 @@ class AMIClient:
         while self._connected:
             action['ActionID'] = generator()
             if _service:
-                if len(self._dq) > 3:
-                    await self._connection_lost()
+                if len(self._dq) > self.ping_delay:
+                    return
                 self._dq.appendleft(action['ActionID'])
             await self._send_action(action)
             await asyncio.sleep(repeat)
@@ -109,7 +120,7 @@ class AMIClient:
                     Event(self._patterns, data).__call__()
                 await self._add_actionid_send()
                 self._actions = Action.action_callbacks(self._actions, data)
-            except (asyncio.exceptions.IncompleteReadError, TimeoutError):
+            except (asyncio.exceptions.IncompleteReadError, TimeoutError, RuntimeError):
                 await self._connection_lost()
 
             if self._patterns == list() and self._actions == list():
@@ -117,7 +128,10 @@ class AMIClient:
 
     async def _send_action(self, action: dict):
         self._writer.write(_convert_dict_to_bytes(action))
-        await self._writer.drain()
+        try:
+            await self._writer.drain()
+        except ConnectionResetError:
+            await self._connection_lost()
 
     async def _connection_close(self):
         """Close the connection"""
@@ -130,6 +144,10 @@ class AMIClient:
 
     async def _connection_lost(self):
         self._connected = False
+        self._authenticated = False
+        self._dq.clear()
+        if self._actions != list():
+            self._actionsdq.appendleft(self._actions[0])
         await self._connect_ami()
 
     def register_event(self, patterns: list, callbacks: object):

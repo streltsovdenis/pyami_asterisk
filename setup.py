@@ -6,13 +6,13 @@ with open("README.md", "r") as fh:
 
 setup(
     name='pyami_asterisk',
-    version='1.1',
+    version='1.2',
     description='pyami_asterisk is a library based on python’s AsyncIO with Asterisk AMI',
     author='Denis Streltsov',
-    author_email='dsv.streltsov@gmail.com',
+    author_email='sdv.streltsov@gmail.com',
     url='https://github.com/streltsovdenis/pyami_asterisk.git',
     keywords=["AMI", "Asterisk", "asyncio", "python"],
-    install_requires=['pytest', 'pytest-asyncio', 'pyyaml'],
+    install_requires=[],
     license='MIT license',
     packages=find_packages(),
     long_description=long_description,
