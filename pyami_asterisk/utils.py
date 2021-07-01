@@ -19,13 +19,18 @@ def _convert_bytes_to_dict(data: bytes) -> dict:
 def _convert_dict_to_bytes(data: dict) -> bytes:
     string = ""
     for _, __ in data.items():
-        string += _ + ": " + __ + EOL.decode()
+        if type(__) is list:
+            for value in __:
+                string += _ + ": " + value + EOL.decode()
+        else:
+            string += _ + ": " + __ + EOL.decode()
     string += EOL.decode()
     return string.encode()
 
 
 class IdGenerator:
     """Generate some uuid for actions:"""
+
     instances = []
 
     def __init__(self, prefix):
