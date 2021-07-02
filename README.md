@@ -13,7 +13,7 @@ Install
 
 Install pyami_asterisk
 
-```
+```bash
 pip install pyami-asterisk
 ```
 
@@ -111,7 +111,7 @@ ami.create_action(
         "Exten": "+37529XXXXXXX",
         "Context": "from-internal",
         "Async": "true",
-        "Variable": r"PJSIP_HEADER(add,Call-Info)=\;Answer-After=0",
+        "Variable": r"PJSIP_HEADER(add,Call-Info)=\;Answer-After=0",  # or multiple Variable ['var=1', 'var=2']
         "Priority": "1",
     },
     callback_originate,
@@ -140,7 +140,7 @@ ami.connect()
 
 Create asyncio task
 
-```python
+``` python
 import asyncio
 import random
 from pyami_asterisk import AMIClient
