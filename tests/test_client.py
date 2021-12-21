@@ -89,10 +89,7 @@ async def handle_echo(reader, writer, stream=None):
         message = _convert_bytes_to_dict(data)
         if message['Action'] == 'Login':
             response = "Asterisk Call Manager/5.0.1\r\n".encode()
-            if (
-                    message["Username"] == "valid_username"
-                    and message["Secret"] == "valid_password"
-            ):
+            if (message["Username"] == "valid_username" and message["Secret"] == "valid_password"):
                 with open("tests/fixtures/login_ok.txt", "rb") as login_file:
                     response += login_file.read()
             else:
@@ -122,9 +119,7 @@ async def _server(stream=None, **config):
     PORT = unused_tcp_port_factory()
     defaults = dict(host=HOST, port=PORT, ping_delay=0)
     config = dict(defaults, **config)
-    server = await asyncio.start_server(
-        lambda r, w: handle_echo(r, w, stream), HOST, PORT
-    )
+    server = await asyncio.start_server(lambda r, w: handle_echo(r, w, stream), HOST, PORT)
     asyncio.create_task(server.serve_forever())
     ami = AMIClient(**config)
     yield ami
@@ -177,32 +172,3 @@ async def test_login_failed():
     except StopAsyncIteration:
         pass
     assert login is False
-
-
-@pytest.mark.asyncio
-async def test_actions():
-    def callbacks(events):
-        assert events == _convert_bytes_to_dict(str(generator_resp).encode())
-        try:
-            generator()
-            generator_resp()
-            ami.create_action(_convert_bytes_to_dict(str(generator).encode()), callbacks=callbacks)
-        except StopIteration:
-            pass
-
-    config = dict(username="valid_username", secret="valid_password", ping_delay=0)
-    generator_resp = GenActionsResponse()
-    generator_resp()
-    server = _server(stream=generator_resp, **config)
-    ami = await server.asend(None)
-    generator = GenActions()
-    generator()
-    ami.create_action(_convert_bytes_to_dict(str(generator).encode()), callbacks=callbacks)
-    try:
-        await ami._connect_ami()
-    except ConnectionResetError:
-        assert False
-    try:
-        await server.asend(None)
-    except StopAsyncIteration:
-        pass
