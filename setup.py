@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='pyami_asterisk',
-    version='1.3',
+    version='1.4',
     description='pyami_asterisk is a library based on python’s AsyncIO with Asterisk AMI',
     author='Denis Streltsov',
     author_email='sdv.streltsov@gmail.com',
@@ -27,6 +27,7 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
         'Topic :: Communications :: Telephony',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
