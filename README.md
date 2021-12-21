@@ -23,6 +23,7 @@ Usage
 Asterisk AMI Listen all Events
 
 ```python
+import asyncio
 from pyami_asterisk import AMIClient
 
 
@@ -30,8 +31,15 @@ def all_events(events):
     print(events)
 
 
+async def hangup_call(events):
+    """asynchronous callbacks"""
+    await asyncio.sleep(3)
+    print(events)
+
+
 ami = AMIClient(host='127.0.0.1', port=5038, username='username', secret='password')
 ami.register_event(["*"], all_events)
+ami.register_event(["Hangup"], hangup_call)
 ami.connect()
 ```
 
@@ -45,8 +53,27 @@ def register_multiple_events(events):
     print(events)
 
 
-def callback_peer_status(events):
-    print(events)
+async def callback_peer_status(events):
+    """
+        Response event:
+        {
+            'Event': 'PeerStatus', 
+            'Privilege': 'system,all',
+            'ChannelType': 'PJSIP', 
+            'Peer': 'PJSIP/888', 
+            'PeerStatus': 'Unreachable',
+        }
+    """
+    if events.get('PeerStatus') == 'Unreachable':
+        await asyncio.sleep(2)
+        print(events)
+
+    async def ping(events):
+        """asynchronous callbacks"""
+        await asyncio.sleep(3)
+        print(events)
+
+    ami.create_action({"Action": "Ping"}, ping)
 
 
 ami = AMIClient(host='127.0.0.1', port=5038, username='username', secret='password')
@@ -58,6 +85,7 @@ ami.connect()
 Asterisk AMI Actions: CoreSettings
 
 ```python
+import asyncio
 from pyami_asterisk import AMIClient
 
 
@@ -65,8 +93,15 @@ def core_settings(events):
     print(events)
 
 
+async def core_status(events):
+    """asynchronous callbacks"""
+    await asyncio.sleep(4)
+    print(events)
+
+
 ami = AMIClient(host='127.0.0.1', port=5038, username='username', secret='password')
 ami.create_action({"Action": "CoreSettings"}, core_settings)
+ami.create_action({"Action": "CoreStatus"}, core_status)
 ami.connect()
 ```
 
@@ -126,6 +161,7 @@ from pyami_asterisk import AMIClient
 
 
 def callback_peer_status(events):
+    
     def callback_ping(response_ping):
         print("Response Ping", response_ping)
 
