@@ -194,3 +194,26 @@ ami = AMIClient(host='127.0.0.1', port=5038, username='username', secret='passwo
 ami.create_asyncio_task(tasks=[refresh_tokens(timeout=2)])
 ami.connect()
 ```
+
+Run / stop async
+
+``` python
+import asyncio
+from pyami_asterisk import AMIClient
+
+
+async def all_events(event):
+    print(event)
+    if event.get('Event') == 'SuccessfulAuth':
+        # connection close
+        await ami.connection_close()
+
+
+async def run_async():
+    await asyncio.sleep(2)
+    await ami.connect_ami()
+
+ami = AMIClient(host='127.0.0.1', port=5038, username='username', secret='password')
+ami.register_event(["*"], all_events)
+asyncio.run(run_async())
+```

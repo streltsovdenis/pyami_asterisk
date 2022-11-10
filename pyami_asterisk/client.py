@@ -1,5 +1,6 @@
 import asyncio
-import logging
+from asyncio.exceptions import IncompleteReadError, LimitOverrunError, TimeoutError
+from loguru import logger as log
 from .utils import _convert_dict_to_bytes, EOL, IdGenerator, _convert_bytes_to_dict
 
 
@@ -28,7 +29,7 @@ class AMIClient:
         self.ping_delay = int(self.config["ping_delay"])
         self.reconnect_timeout = int(self.config["reconnect_timeout"])
         self.reconnect_timeout_increase = int(self.config["reconnect_timeout_increase"])
-        self.log = config.get('log', logging.getLogger(__name__))
+        self.log = config.get('log', log)
         self._reader = None
         self._writer = None
         self._connected = False
@@ -47,7 +48,7 @@ class AMIClient:
         try:
             connection = asyncio.open_connection(self.config["host"], self.config["port"])
             self._reader, self._writer = await asyncio.wait_for(connection, timeout=5)
-        except (asyncio.exceptions.TimeoutError, ConnectionRefusedError):
+        except (TimeoutError, ConnectionRefusedError):
             if self.reconnect_timeout == 0:
                 return False
             self.log.warning(f"Connection failed ({self.config['host']}, {self.config['port']}), next connection "
@@ -60,19 +61,21 @@ class AMIClient:
             self.reconnect_timeout = int(self.config["reconnect_timeout"])
         return True
 
-    async def _connect_ami(self):
+    async def connect_ami(self):
         self._connected = await self._open_connection()
         if not self._connected:
             return
         self._authenticated = await self._login()
         if not self._authenticated:
             return
+        self._service_ping()
         await self._handler_tasks()
+        await self._event_listener()
 
-    async def _handler_tasks(self):
+    async def _handler_tasks(self, action_in_callback: bool = False):
         if self._actions != list():
             for action in self._actions:
-                if action['repeat'] > 0:
+                if action['repeat'] > 0 and not action_in_callback:
                     asyncio.create_task(self._actions_task_repeat(action))
                     self._actions_repeat = True
                     self._actions_repeat_connections_lost.append(action)
@@ -82,8 +85,6 @@ class AMIClient:
         if self._asyncio_tasks != list():
             for task in self._asyncio_tasks:
                 asyncio.create_task(task)
-        self._service_ping()
-        await self._event_listener()
 
     async def _login(self):
         await self._send_action({
@@ -114,7 +115,7 @@ class AMIClient:
             try:
                 try:
                     data = await self._reader.readuntil(separator=EOL * 2)
-                except asyncio.exceptions.LimitOverrunError as e:
+                except LimitOverrunError as e:
                     data = await self._reader.read(e.consumed) + await self._reader.readline()
                 if data == "".encode():
                     continue
@@ -139,20 +140,20 @@ class AMIClient:
                                 self._actions_ids.get(response['ActionID'])['wait_next'] = False
                         if not self._actions_ids.get(response['ActionID'])['wait_next']:
                             self._actions_ids.pop(response['ActionID'])
-                        await self._check_empty()
                         continue
 
                 if self._patterns != list():
                     self._data.put_nowait(_convert_bytes_to_dict(data))
                     asyncio.create_task(self._events_callbacks())
 
-                await self._check_empty()
-            except (asyncio.exceptions.IncompleteReadError, TimeoutError, RuntimeError, ConnectionResetError):
-                await self._connection_lost()
+            except (IncompleteReadError, TimeoutError, RuntimeError, ConnectionResetError):
+                if self._connected:
+                    await self._connection_lost()
 
     async def _check_empty(self):
         if self._patterns == list() and self._actions_ids == dict() and not self._actions_repeat:
-            await self._connection_close()
+            self._connected = False
+            await self.connection_close()
 
     async def _actions_callbacks(self):
         action, response = await self._actions_queue.get()
@@ -161,6 +162,8 @@ class AMIClient:
         else:
             action.get('callback')(response)
         self._actions_queue.task_done()
+        await self._handler_tasks(action_in_callback=True)
+        await self._check_empty()
 
     async def _events_callbacks(self):
         data = await self._data.get()
@@ -175,17 +178,13 @@ class AMIClient:
                     await list(pattern.values())[0](data)
                 else:
                     list(pattern.values())[0](data)
-        if self._actions != list():
-            for action in self._actions:
-                await self._send_action(action.get('action'), callback=action.get('callback'))
-            self._actions.clear()
         self._data.task_done()
+        await self._handler_tasks(action_in_callback=True)
 
     async def _send_action(self, action: dict, callback: object = None):
         if "ActionID" not in action.keys():
             action_id_generator = IdGenerator('action')
             action['ActionID'] = action_id_generator()
-        # if callback is not None:
         self._actions_ids[action['ActionID']] = {'action': action, 'callback': callback, 'wait_next': False}
         self._writer.write(_convert_dict_to_bytes(action))
         try:
@@ -193,10 +192,11 @@ class AMIClient:
         except ConnectionResetError:
             await self._connection_lost()
 
-    async def _connection_close(self):
+    async def connection_close(self):
         """Close the connection"""
         self._connected = False
         self._writer.close()
+        self.log.warning('AMI connection close')
         await self._writer.wait_closed()
 
     def _service_ping(self):
@@ -209,7 +209,12 @@ class AMIClient:
         if self._actions_repeat:
             self._actions = self._actions_repeat_connections_lost.copy()
             self._actions_repeat = False
-        await self._connect_ami()
+        restart_failed = await self.connect_ami()
+        if restart_failed is None:
+            if self.reconnect_timeout == 0:
+                self.connection_close()
+            await asyncio.sleep(self.reconnect_timeout)
+            await self._connection_lost()
 
     def register_event(self, patterns: list, callbacks: object):
         for pattern in patterns:
@@ -223,4 +228,4 @@ class AMIClient:
             self._asyncio_tasks.append(task)
 
     def connect(self):
-        asyncio.run(self._connect_ami())
+        asyncio.run(self.connect_ami())
