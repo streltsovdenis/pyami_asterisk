@@ -1,5 +1,4 @@
 import asyncio
-from asyncio.exceptions import IncompleteReadError, LimitOverrunError, TimeoutError
 from loguru import logger as log
 from .utils import _convert_dict_to_bytes, EOL, IdGenerator, _convert_bytes_to_dict
 
@@ -35,20 +34,20 @@ class AMIClient:
         self._connected = False
         self._authenticated = None
         self.ami_version = self.config.get('ami_version')
-        self._asyncio_tasks = list()
-        self._patterns = list()
+        self._asyncio_tasks = []
+        self._patterns = []
         self._data = asyncio.Queue()
-        self._actions = list()
-        self._actions_ids = dict()
+        self._actions = []
+        self._actions_ids = {}
         self._actions_queue = asyncio.Queue()
         self._actions_repeat = False
-        self._actions_repeat_connections_lost = list()
+        self._actions_repeat_connections_lost = []
 
     async def _open_connection(self):
         try:
             connection = asyncio.open_connection(self.config["host"], self.config["port"])
             self._reader, self._writer = await asyncio.wait_for(connection, timeout=5)
-        except (TimeoutError, ConnectionRefusedError):
+        except (asyncio.TimeoutError, ConnectionRefusedError):
             if self.reconnect_timeout == 0:
                 return False
             self.log.warning(f"Connection failed ({self.config['host']}, {self.config['port']}), next connection "
@@ -73,7 +72,7 @@ class AMIClient:
         await self._event_listener()
 
     async def _handler_tasks(self, action_in_callback: bool = False):
-        if self._actions != list():
+        if self._actions:
             for action in self._actions:
                 if action['repeat'] > 0 and not action_in_callback:
                     asyncio.create_task(self._actions_task_repeat(action))
@@ -82,9 +81,10 @@ class AMIClient:
                 else:
                     await self._send_action(action['action'], callback=action['callback'])
             self._actions.clear()
-        if self._asyncio_tasks != list():
+        if self._asyncio_tasks:
             for task in self._asyncio_tasks:
                 asyncio.create_task(task)
+            self._asyncio_tasks.clear()
 
     async def _login(self):
         await self._send_action({
@@ -115,17 +115,19 @@ class AMIClient:
             try:
                 try:
                     data = await self._reader.readuntil(separator=EOL * 2)
-                except LimitOverrunError as e:
+                except asyncio.LimitOverrunError as e:
                     data = await self._reader.read(e.consumed) + await self._reader.readline()
                 if data == "".encode():
                     continue
                 if "Event: Shutdown".encode() in data:
                     self.log.warning("Asterisk is shutdown or restarted")
                     await self._connection_lost()
+                if "Response: Goodbye".encode() in data:
+                    await self.connection_close()
 
                 if "ActionID".encode() in data:
                     response = _convert_bytes_to_dict(data)
-                    if response['ActionID'] in self._actions_ids.keys():
+                    if response['ActionID'] in self._actions_ids:
                         if self._actions_ids.get(response['ActionID']).get('callback') is not None:
                             self._actions_queue.put_nowait((self._actions_ids.get(response['ActionID']), response))
                             asyncio.create_task(self._actions_callbacks())
@@ -136,22 +138,22 @@ class AMIClient:
                                 self._actions_ids.get(response['ActionID'])['wait_next'] = True
                             elif response.get('Response') in ('Success', 'Error', 'Fail', 'Failure'):
                                 self._actions_ids.get(response['ActionID'])['wait_next'] = False
-                            elif response.get('Event').endswith('Complete'):
+                            elif response.get('Event', '').endswith('Complete'):
                                 self._actions_ids.get(response['ActionID'])['wait_next'] = False
                         if not self._actions_ids.get(response['ActionID'])['wait_next']:
                             self._actions_ids.pop(response['ActionID'])
                         continue
 
-                if self._patterns != list():
+                if self._patterns:
                     self._data.put_nowait(_convert_bytes_to_dict(data))
                     asyncio.create_task(self._events_callbacks())
 
-            except (IncompleteReadError, TimeoutError, RuntimeError, ConnectionResetError):
+            except (asyncio.IncompleteReadError, asyncio.TimeoutError, RuntimeError, ConnectionResetError):
                 if self._connected:
                     await self._connection_lost()
 
     async def _check_empty(self):
-        if self._patterns == list() and self._actions_ids == dict() and not self._actions_repeat:
+        if not self._patterns and not self._actions_ids and not self._actions_repeat:
             self._connected = False
             await self.connection_close()
 
@@ -182,7 +184,7 @@ class AMIClient:
         await self._handler_tasks(action_in_callback=True)
 
     async def _send_action(self, action: dict, callback: object = None):
-        if "ActionID" not in action.keys():
+        if "ActionID" not in action:
             action_id_generator = IdGenerator('action')
             action['ActionID'] = action_id_generator()
         self._actions_ids[action['ActionID']] = {'action': action, 'callback': callback, 'wait_next': False}
