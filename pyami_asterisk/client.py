@@ -47,7 +47,7 @@ class AMIClient:
         try:
             connection = asyncio.open_connection(self.config["host"], self.config["port"])
             self._reader, self._writer = await asyncio.wait_for(connection, timeout=5)
-        except (asyncio.TimeoutError, ConnectionRefusedError):
+        except (asyncio.TimeoutError, ConnectionRefusedError, OSError):
             if self.reconnect_timeout == 0:
                 return False
             self.log.warning(f"Connection failed ({self.config['host']}, {self.config['port']}), next connection "
@@ -148,7 +148,7 @@ class AMIClient:
                     self._data.put_nowait(_convert_bytes_to_dict(data))
                     asyncio.create_task(self._events_callbacks())
 
-            except (asyncio.IncompleteReadError, asyncio.TimeoutError, RuntimeError, ConnectionResetError):
+            except (asyncio.IncompleteReadError, TimeoutError, RuntimeError, ConnectionResetError):
                 if self._connected:
                     await self._connection_lost()
 
