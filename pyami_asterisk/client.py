@@ -214,7 +214,8 @@ class AMIClient:
         restart_failed = await self.connect_ami()
         if restart_failed is None:
             if self.reconnect_timeout == 0:
-                self.connection_close()
+                await self.connection_close()
+                return
             await asyncio.sleep(self.reconnect_timeout)
             await self._connection_lost()
 
